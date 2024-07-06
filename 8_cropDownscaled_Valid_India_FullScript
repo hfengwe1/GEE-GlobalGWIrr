@@ -1,0 +1,98 @@
+var table = ee.FeatureCollection("projects/fwhung/assets/Validation/IndiaPT"),
+    image2 = ee.Image("projects/fwhung/assets/CroplandNew60m/Crop_IrrSource_2015");
+    
+// Task 1: Buffer Analysis
+var pts = ee.FeatureCollection(table) // well location
+
+var cropClass = image2.select('cropClass').rename('b1')
+// var mask = cropClass.eq(1).or(cropClass.eq(2)).or(cropClass.eq(3)) // rainfed+SWirr+GWirr
+var GWirr = cropClass.eq(3).rename('b1')
+
+var threshold = 0.01 
+var list =  ee.List([120,300,500,1000,2000,3000,5000,10000]) // distance list for buffer analysis
+
+var seq = ee.List.sequence({start:0, count:list.length()}) // create a sequence for looping
+
+var reducer =ee.Reducer.mean()
+
+var zone = function(pt){
+  var distList = seq.map(function(s){
+  var circle = pt.buffer({distance:ee.Number(list.get(s)), maxError:10});
+  var GWirrMean = GWirr.reduceRegion({reducer: reducer, geometry: circle.geometry(), scale:10}).get('b1') 
+  return GWirrMean
+  })
+
+  var gwList = seq.map(function(s){
+  var predict = ee.Number(distList.get(s)).gt(threshold)
+  return predict // save reduced results
+  })
+  
+  return pt
+  .set('d120m',distList.get(0)).set('d300m',distList.get(1)).set('d500m',distList.get(2)).set('d1000m',distList.get(3))
+  .set('d2000m',distList.get(4)).set('d3000m',distList.get(5)).set('d5000m',distList.get(6)).set('d10000m',distList.get(7))
+  .set('GW120m',ee.Number(gwList.get(0)).int()).set('GW300m',ee.Number(gwList.get(1)).int()).set('GW500m',ee.Number(gwList.get(2)).int())
+  .set('GW1000m',ee.Number(gwList.get(3)).int()).set('GW2000m',ee.Number(gwList.get(4)).int()).set('GW3000m',ee.Number(gwList.get(5)).int())
+  .set('GW5000m',ee.Number(gwList.get(6)).int()).set('GW10000m',ee.Number(gwList.get(7)).int())  
+}
+
+
+var order = [0,1] //a list of possible class values for error matrix axis labels.
+var GWPredict = pts.map(zone)
+
+
+var removeGeo = function(feature){
+  feature = feature.setGeometry(null);
+  return (feature)}
+
+// Task 2: Confusion Matrix
+  // Compute an error matrix that compares predicted vs. expected values.
+  // Summarize confusion matrix results of multiple buffer ranges 
+
+var confList = seq.map(function(s){
+  var pname = ee.String('GW').cat(ee.String(list.get(s))).cat(ee.String('m'))
+  return pname}); 
+
+
+var ConfusionM = function(pname){
+
+  var errorMatrix = GWPredict.errorMatrix({actual: 'Code', predicted: pname, order: order});
+  var accuracy = errorMatrix.accuracy()
+  var consumerA = errorMatrix.consumersAccuracy()
+  var producerA = errorMatrix.producersAccuracy()
+  var kappa = errorMatrix.kappa()
+  var fscore = errorMatrix.fscore()
+  
+  /// Create a dictionary 
+  // To create an ee.Dictionary from two corresponding lists of keys and values,
+  var values = [accuracy, consumerA.get([0,0]), consumerA.get([0,1]), producerA.get([0,0]), producerA.get([1,0]),
+              kappa, fscore.get([0]), fscore.get([1])
+              ];
+  return values
+}
+
+var Rname = ['accuracy', 'Consumer1', 'Consumer2', 'Producer1', 'Producer2', 'Kappa', 'fscore1', 'fscore2'];
+var GWconf = confList.map(ConfusionM)
+
+
+var dict = ee.Dictionary.fromLists(confList, GWconf)
+
+var toFC = function(key, value) {
+  return ee.Feature(null, ee.Dictionary.fromLists(Rname, value)).set('0_name', key);
+}
+
+var fc = dict.map(toFC).values()
+
+// Task 1 Output
+Export.table.toAsset({collection: GWPredict, description: 'India_Data_Valid_ToAsset', assetId:'India_Data_Valid_1perct0908' });
+Export.table.toDrive({collection: GWPredict, description: 'India_Data_Valid_1perct0908', fileFormat: 'CSV',folder: 'TBA-Results',});
+// Task 2 Output
+Export.table.toDrive({collection: ee.FeatureCollection(fc), description: 'India_ConfusionMatrix_1Perct0908', fileFormat: 'CSV',folder: 'TBA-Results',});
+
+
+
+
+
+
+
+
+
