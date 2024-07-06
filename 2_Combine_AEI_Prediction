@@ -1,0 +1,17 @@
+var image = ee.Image("projects/fwhung/assets/AEI_Prediction/Irr_Predict_AF2015"),
+    image2 = ee.Image("projects/fwhung/assets/AEI_Prediction/Irr_Predict_AS2015"),
+    image3 = ee.Image("projects/fwhung/assets/AEI_Prediction/Irr_Predict_EU2015"),
+    image4 = ee.Image("projects/fwhung/assets/AEI_Prediction/Irr_Predict_NA2015"),
+    image5 = ee.Image("projects/fwhung/assets/AEI_Prediction/Irr_Predict_OC2015"),
+    image6 = ee.Image("projects/fwhung/assets/AEI_Prediction/Irr_Predict_SA2015");
+
+var mosaic2015 = ee.ImageCollection([image, image2,image3,image4, image5, image6]).mosaic()
+
+Export.image.toAsset({image:mosaic2015,
+          description:"Irr_Prediction_global_2015", 
+          assetId: 'Irr_Prediction_global_2015',
+          scale: 9276.6,
+          maxPixels:1e13
+});
+
+
