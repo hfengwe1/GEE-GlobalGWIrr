@@ -1,0 +1,129 @@
+//Export image to asset
+// create Folders: AEI_Prediction, AQUASTAT,CroplandNew60m G_AEI, TBA_BufferZone, Validation,WATNEED
+var table = ee.FeatureCollection("projects/ee-fhung2/assets/countryborders_faogaul2014"),
+    IA = ee.Image("projects/ee-fhung2/assets/WATNEED/Map_irrigated_ALLgrowth"),
+    AEI2015 = ee.Image("projects/ee-fhung2/assets/G_AEI/G_AEI_2015"),
+    AEI2010 = ee.Image("projects/ee-fhung2/assets/G_AEI/G_AEI_2010"),
+    AEI2005 = ee.Image("projects/ee-fhung2/assets/G_AEI/G_AEI_2005"),
+    AEI2000 = ee.Image("projects/ee-fhung2/assets/G_AEI/G_AEI_2000"),
+    aei_2015 = ee.Image("projects/ee-fhung2/assets/AEI_Prediction/Irr_Prediction_global_2015"),
+    BWRV2000 = ee.Image("projects/ee-fhung2/assets/WATNEED/BlueWaterNeeds_yr_km3_2000"),
+    BWRV2005 = ee.Image("projects/ee-fhung2/assets/WATNEED/BlueWaterNeeds_yr_km3_2005"),
+    BWRV2010 = ee.Image("projects/ee-fhung2/assets/WATNEED/BlueWaterNeeds_yr_km3_2010"),
+    BWRV2015 = ee.Image("projects/ee-fhung2/assets/WATNEED/BlueWaterNeeds_yr_km3_2015"),
+    imageVisParam = {"opacity":1,"bands":["cropClass"],"max":4,"palette":["ffffff","fffb76","62fff1","2540ff","ff4e7f"]};
+
+var AEIscale = 9276.6
+var BWRVscale = 9276.6
+var USScale = 30
+var ChinaScale = 500
+
+var lanid2015 = ee.Image("projects/ee-fhung2/assets/Validation/AEI_US_2015")
+var AEI_China = ee.Image("projects/ee-fhung2/assets/Validation/AEI_China_2015")
+var GWf=ee.Image("projects/ee-fhung2/assets/AQUASTAT/gmia_v5_aeigw_pct")
+
+var AEI_notMasked_China = ee.Image("projects/ee-fhung2/assets/Validation/AEI_notMasked_China_Diff60m"),
+    AEI_notMasked_US = ee.Image("projects/ee-fhung2/assets/Validation/AEI_notMasked_US_Diff60m")
+    wellLocation = ee.Image('projects/fwhung/assets/US_well/wellLocation_IrrOnly');
+
+var Crop_IrrSource_2015 = ee.Image("projects/ee-fhung2/assets/cropland_downscaled_new/Crop_IrrSource_2015_0524"),
+    bufferZone = ee.FeatureCollection("projects/ee-fhung2/assets/TBA_Buffer_Zone/Cntr_Aqf_BufZone_Final"),
+    IndiaPT = ee.FeatureCollection("projects/ee-fhung2/assets/Validation/India_lat-lon_data_for_GEE");
+
+
+// Cropland Irr Source Downscaled stored in CroplandNew60m folder
+var image = ee.Image("projects/ee-fhung2/assets/cropland_downscaled_new/Cropland_2015_AF"),
+    image2 = ee.Image("projects/ee-fhung2/assets/cropland_downscaled_new/Cropland_2015_AUS"),
+    image3 = ee.Image("projects/ee-fhung2/assets/cropland_downscaled_new/Cropland_2015_EU"),
+    image4 = ee.Image("projects/ee-fhung2/assets/cropland_downscaled_new/Cropland_2015_HI"),
+    image5 = ee.Image("projects/ee-fhung2/assets/cropland_downscaled_new/Cropland_2015_NA"),
+    image6 = ee.Image("projects/ee-fhung2/assets/cropland_downscaled_new/Cropland_2015_NAs"),
+    image7 = ee.Image("projects/ee-fhung2/assets/cropland_downscaled_new/Cropland_2015_SA"),
+    image8 = ee.Image("projects/ee-fhung2/assets/cropland_downscaled_new/Cropland_2015_SAs");
+
+Export.image.toAsset({image:image,description:"Cropland_2015_AF", assetId: 'CroplandNew60m/Cropland_2015_AF', 
+        scale:60 ,maxPixels:1e13, pyramidingPolicy:'mode'});
+Export.image.toAsset({image:image2,description:"Cropland_2015_AUS", assetId: 'CroplandNew60m/Cropland_2015_AUS',
+        scale:60 ,maxPixels:1e13, pyramidingPolicy:'mode'});
+Export.image.toAsset({image:image3,description:"Cropland_2015_EU", assetId: 'CroplandNew60m/Cropland_2015_EU',
+        scale:60 ,maxPixels:1e13, pyramidingPolicy:'mode'});
+Export.image.toAsset({image:image4,description:"Cropland_2015_HI", assetId: 'CroplandNew60m/Cropland_2015_HI',
+        scale:60 ,maxPixels:1e13, pyramidingPolicy:'mode'});
+Export.image.toAsset({image:image5,description:"Cropland_2015_NA", assetId: 'CroplandNew60m/Cropland_2015_NA',
+        scale:60 ,maxPixels:1e13, pyramidingPolicy:'mode'});
+Export.image.toAsset({image:image6,description:"Cropland_2015_NAs", assetId: 'CroplandNew60m/Cropland_2015_NAs',
+        scale:60 ,maxPixels:1e13, pyramidingPolicy:'mode'});
+Export.image.toAsset({image:image7,description:"Cropland_2015_SA", assetId: 'CroplandNew60m/Cropland_2015_SA',
+        scale:60 ,maxPixels:1e13, pyramidingPolicy:'mode'});
+Export.image.toAsset({image:image8,description:"Cropland_2015_SAs", assetId: 'CroplandNew60m/Cropland_2015_SAs',
+        scale:60 ,maxPixels:1e13, pyramidingPolicy:'mode'});
+
+
+Export.image.toAsset({image:Crop_IrrSource_2015,description:"Crop_IrrSource_2015", assetId: 'CroplandNew60m/Crop_IrrSource_2015',
+        scale:60 ,maxPixels:1e13, pyramidingPolicy:'mode'});
+
+// Stored in G_AEI folder; AEI maps from Mehth et al. (2022; preprint) 
+
+Export.image.toAsset({image:AEI2015,description:"AEI2015", assetId: 'G_AEI/AEI2015',
+        scale:AEIscale ,maxPixels:1e13, pyramidingPolicy:'mode'});
+Export.image.toAsset({image:AEI2010,description:"AEI2010", assetId: 'G_AEI/AEI2010',
+        scale:AEIscale ,maxPixels:1e13, pyramidingPolicy:'mode'});
+
+Export.image.toAsset({image:AEI2005,description:"AEI2005", assetId: 'G_AEI/AEI2005',
+        scale:AEIscale ,maxPixels:1e13, pyramidingPolicy:'mode'});
+Export.image.toAsset({image:AEI2000,description:"AEI2000", assetId: 'G_AEI/AEI2000',
+        scale:AEIscale ,maxPixels:1e13, pyramidingPolicy:'mode'});
+
+Export.image.toAsset({image: aei_2015, description: 'aei_predict2015', assetId:'AEI_Prediction/Irr_Prediction_global_2015',
+        scale:100 ,maxPixels:1e13, pyramidingPolicy:'mean'});
+        
+// Stored in WATNEED folder; global bluewaterneeds from Davide  
+
+Export.image.toAsset({image:BWRV2015,description:"BWRV2015", assetId: 'WATNEED/BWRV2015',
+        scale:BWRVscale ,maxPixels:1e13, pyramidingPolicy:'mean'});
+Export.image.toAsset({image:BWRV2010,description:"BWRV2010", assetId: 'WATNEED/BWRV2010',
+        scale:BWRVscale ,maxPixels:1e13, pyramidingPolicy:'mean'});
+Export.image.toAsset({image:BWRV2005,description:"BWRV2005", assetId: 'WATNEED/BWRV2005',
+        scale:BWRVscale ,maxPixels:1e13, pyramidingPolicy:'mean'});
+Export.image.toAsset({image:BWRV2000,description:"BWRV2000", assetId: 'WATNEED/BWRV2000',
+        scale:BWRVscale ,maxPixels:1e13, pyramidingPolicy:'mean'});
+Export.image.toAsset({image: IA, description: 'Map_irrigated_ALLgrowth', assetId:'WATNEED/Map_irrigated_ALLgrowth',
+        scale:BWRVscale ,maxPixels:1e13, pyramidingPolicy:'mean'});
+Export.image.toAsset({image:GWf,description:"gmia_v5_aeigw_pct", assetId: 'AQUASTAT/gmia_v5_aeigw_pct',
+        scale:BWRVscale ,maxPixels:1e13, pyramidingPolicy:'mean'});
+
+// Validation Data stored in Validation folder
+// var aei_mask_china_diff60m = ee.Image('projects/ee-fhung2/assets/Validation/AEI_Masked_China_Diff60m')
+// var aei_mask_us_diff60m = ee.Image('projects/ee-fhung2/assets/Validation/AEI_Masked_US_Diff60m')
+Export.image.toAsset({image:lanid2015, description:"lanid2015_5070", assetId: 'Validation/AEI_US_2015',
+        scale:USScale ,maxPixels:1e13, pyramidingPolicy:'mode'});
+Export.image.toAsset({image:AEI_China,description:"AEI_China", assetId: 'Validation/AEI_China_2015',
+        scale:ChinaScale ,maxPixels:1e13, pyramidingPolicy:'mode'});
+Export.image.toAsset({image:AEI_notMasked_China,description:"AEI_notMasked_China", assetId: 'Validation/AEI_notMasked_China_Diff60m', 
+        scale:60 ,maxPixels:1e13, pyramidingPolicy:'mode'});
+Export.image.toAsset({image:AEI_notMasked_US,description:"AEI_notMasked_US", assetId: 'Validation/AEI_notMasked_US_Diff60m', 
+        scale:60 ,maxPixels:1e13, pyramidingPolicy:'mode'});
+
+// Export.image.toAsset({image:aei_mask_china_diff60m,description:"aei_mask_china_diff60m", assetId: 'Validation/AEI_Masked_China_Diff60m', 
+//         scale:60 ,maxPixels:1e13, pyramidingPolicy:'mode'});
+// Export.image.toAsset({image:aei_mask_us_diff60m,description:"aei_mask_us_diff60m", assetId: 'Validation/AEI_Masked_US_Diff60m', 
+//         scale:60 ,maxPixels:1e13, pyramidingPolicy:'mode'});
+
+
+
+// Export the table to asset.
+var aei_china_provinceMean = ee.FeatureCollection('projects/ee-fhung2/assets/Validation/AEI_Masked_China_Valid_ProvinceMean')
+var aei_us_StateMean = ee.FeatureCollection('projects/ee-fhung2/assets/Validation/AEI_Masked_US_Valid_StateMean')
+Export.table.toAsset({collection: aei_china_provinceMean, description: 'aei_china_provinceMean', assetId:'Validation/AEI_Masked_China_Valid_ProvinceMean'})
+Export.table.toAsset({collection: aei_us_StateMean, description: 'aei_us_StateMean', assetId:'Validation/AEI_Masked_US_Valid_StateMean'})
+
+Export.table.toAsset({collection: table, description: 'countryborders_faogaul2014', assetId:'countryborders_faogaul2014'})
+Export.table.toAsset({collection: IndiaPT, description: 'IndiaPT', assetId:'Validation/IndiaPT'})
+Export.table.toAsset({collection: bufferZone, description: 'bufferZone', assetId:'TBA_BufferZone/Cntr_Aqf_BufZone_Final'})
+Export.table.toAsset({collection: IndiaPT, description: 'IndiaPT', assetId:'Validation/India_lat-lon_data_for_GEE'})
+
+Export.table.toAsset({collection: wellLocation, description: 'wellLocation', assetId:'Validation/wellLocation_IrrOnly'})
+
+
+
+    
