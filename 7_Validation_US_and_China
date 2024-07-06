@@ -1,0 +1,93 @@
+var lanid2015 = ee.Image("projects/fwhung/assets/Validation/AEI_US_2015"),
+    AEI_China = ee.Image("projects/fwhung/assets/Validation/AEI_China_2015"),
+    table = ee.FeatureCollection("TIGER/2018/States"),
+    CONUS = 
+    /* color: #98ff00 */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-129.1610183956785, 51.06348657907155],
+          [-129.1610183956785, 21.03527791938122],
+          [-61.3094558956785, 21.03527791938122],
+          [-61.3094558956785, 51.06348657907155]]], null, false),
+    Crop_IrrSource_2015 = ee.Image("projects/fwhung/assets/CroplandNew60m/Crop_IrrSource_2015"),
+    imageVisParam = {"opacity":0.55,"bands":["b1"],"max":1,"gamma":1};
+
+
+var ChinaProvince = ee.FeatureCollection("projects/ee-fhung2/assets/Validation/chn_admbnda_adm1_ocha_2020")
+   
+var AEIScale = 60 // scale
+var AEI = Crop_IrrSource_2015.select('cropClass').gt(1).and(Crop_IrrSource_2015.select('cropClass').lt(4))
+          .rename('b1');// binary
+
+var Crop = Crop_IrrSource_2015.select('cropClass').gt(0).and(Crop_IrrSource_2015.select('cropClass').lt(4))
+          .rename('b1');// binary
+        
+var meanReducer = ee.Reducer.mean()
+
+var StAEImean = function(st){
+  var AEImeanLANID = lanid2015.reduceRegion({reducer: meanReducer, geometry: st.geometry(),maxPixels: 1e12,scale: 100,}).get('b1')
+  var AEImeanPredict = AEI.reduceRegion({reducer: meanReducer, geometry: st.geometry(),maxPixels: 1e12,scale: 100,}).get('b1')
+  var diff = ee.Number(AEImeanPredict).subtract(ee.Number(AEImeanLANID))
+  return st.set('AEImeanRef',AEImeanLANID).set('AEImeanPredict',AEImeanPredict).set('AEIPredictDiff', diff)
+}
+
+var removeGeo = function(feature){
+  feature = feature.setGeometry(null);
+  return (feature)}
+
+//United States
+var State = ee.FeatureCollection(table).filterBounds(CONUS)
+var lanid60m = lanid2015.reproject({crs:AEI.projection(), scale:AEIScale})
+var USOut = State.map(StAEImean)  // calculate the average difference in % at State level
+var AEI_diff_noMask_US = AEI.subtract(lanid2015) // calculate the difference between our AEI map and LANID data
+            .clip(State.union()); // AEI difference  
+var AEI_diff_Mask_US = AEI_diff_noMask_US // calculate the difference between our AEI map and LANID data
+            .updateMask(Crop)
+
+//China
+
+var ProvinceAEImean = function(st){
+  var AEImeanChinaPr = AEI_China_Reproject.reduceRegion({reducer: meanReducer, geometry: st.geometry(),maxPixels: 1e12,scale: 60,}).get('b1')
+  var AEImeanPredict = AEI.reduceRegion({reducer: meanReducer, geometry: st.geometry(),maxPixels: 1e12,scale: 60,}).get('b1')
+  var diff = ee.Number(AEImeanPredict).subtract(ee.Number(AEImeanChinaPr))
+  return st.set('AEImeanRef',AEImeanChinaPr).set('AEImeanPredict',AEImeanPredict).set('AEIPredictDiff', diff)
+}
+
+var AEI_China_Reproject = AEI_China.unmask().reproject({crs:AEI.projection(), scale:AEIScale});
+    // China AEI map in 60-m res (orignal resolution is 500m and is downscaled to 60m)
+var ChinaOut = ChinaProvince.map(ProvinceAEImean)  // calculate the average difference in % at State level
+
+var AEI_diff_noMask_China = AEI.subtract(AEI_China_Reproject)
+            .clip(ChinaProvince.union()); // AEI difference in China 
+
+var AEI_diff_Mask_China = AEI_diff_noMask_China
+            .updateMask(Crop)
+
+
+
+
+// Export
+  // US
+// Export.image.toAsset({image: AEI_diff_Mask_US, description: 'Valid_US_ImagetoAsset', assetId:'Validation/AEI_Masked_US_Diff60m', scale:60, maxPixels:1e13})
+Export.image.toAsset({image: AEI_diff_noMask_US, description: 'Valid_US_noMaskImagetoAsset', 
+              assetId:'Validation/AEI_notMasked_US_Diff60m', scale:60, maxPixels:1e13})
+
+Export.table.toAsset({collection: USOut, description: 'Valid_US_TabletoAsset', assetId:'Validation/AEI_MaskedUS_Valid_StateMean' })
+Export.table.toDrive({collection: USOut.map(removeGeo), description: 'Valid_US60m0601', fileFormat: 'CSV',folder: 'TBA-Results/Validation'});
+  
+  //China
+// Export.image.toAsset({image: AEI_diff_Mask_China, description: 'Valid_China_ImagetoAsset', assetId:'Validation/AEI_Masked_China_Diff60m', scale:60, maxPixels:1e13})
+// Export.image.toAsset({image: AEI_diff_noMask_China, description: 'Valid_China_noMaskImagetoAsset',
+//               assetId:'Validation/AEI_notMasked_China_Diff60m', scale:60, maxPixels:1e13})
+// Export.table.toAsset({collection: ChinaOut, description: 'Valid_China_TabletoAsset', assetId:'Validation/AEI_MaskedChina_Valid_ProvinceMean' })
+// Export.table.toDrive({collection: ChinaOut.map(removeGeo), description: 'Valid_China60m0601', fileFormat: 'CSV',folder: 'TBA-Results/Validation',});
+
+
+
+
+
