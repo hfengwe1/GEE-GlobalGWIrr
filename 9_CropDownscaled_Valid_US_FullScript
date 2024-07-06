@@ -80,8 +80,6 @@ var CT = county.map(function(ct){
 
     })
     .flatten()
-// print(buffer)
-// asdf
 
     return ct.set(ee.String(bufstr.get(0)).cat(istr.get(0)), ee.Number(buffer.get(0)))
             .set(ee.String(bufstr.get(0)).cat(istr.get(1)), ee.Number(buffer.get(1)))
@@ -96,7 +94,7 @@ var CT = county.map(function(ct){
             .set(ee.String(bufstr.get(2)).cat(istr.get(2)), ee.Number(buffer.get(10)))
             .set(ee.String(bufstr.get(2)).cat(istr.get(3)), ee.Number(buffer.get(11)))
   })
-// print(CT) 
+
 
 Map.addLayer(crop, {}, 'Crop')
 Map.addLayer(GWirr.updateMask(crop), {}, 'GWirr')
