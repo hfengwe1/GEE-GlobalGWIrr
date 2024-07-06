@@ -1,0 +1,38 @@
+var table = ee.FeatureCollection("projects/fwhung/assets/Validation/IndiaPT"),
+    imageVisParam = {"opacity":0.52,"bands":["b1"],"max":1,"gamma":1},
+    image = ee.Image("projects/fwhung/assets/Validation/AEI_US_2015"),
+    image2 = ee.Image("projects/fwhung/assets/CroplandNew60m/Crop_IrrSource_2015");
+
+
+var IndiaPts = ee.FeatureCollection(table)
+
+var cropClass = image2.select('cropClass').rename('b1')
+var mask = cropClass.eq(1).or(cropClass.eq(2)).or(cropClass.eq(3)) // rainfed+SWirr+GWirr
+var GWirr = cropClass.eq(3).updateMask(mask).rename('b1')
+
+var dist = 100
+var Scale = dist/(100)
+var list = [1000,2000,5000,10000,20000,30000,50000]
+
+
+var reducer =ee.Reducer.mean()
+var zone = function(pt){
+  var distList = list.map(function(d){
+  var circle = pt.buffer({distance:d, maxError:10});
+  var GWirrMean = GWirr.reduceRegion({reducer: reducer, geometry: circle.geometry(), scale:d/(1000)}).get('b1')    
+  return GWirrMean
+  })
+  return pt.set('d1km',distList[0]).set('d2km',distList[1]).set('d5km',distList[2]).set('d10km',distList[3])
+          .set('d20km',distList[4]).set('d30km',distList[5]).set('d50km',distList[6])}
+
+var GWirrPt = IndiaPts.map(zone)
+
+
+var removeGeo = function(feature){
+  feature = feature.setGeometry(null);
+  return (feature)}
+
+Export.table.toDrive({collection: GWirrPt, description: 'Valid_India_Masked0608', fileFormat: 'CSV',folder: 'TBA-Results',});
+
+
+    
