@@ -1,0 +1,203 @@
+// This code applies Random Forest with Bluewater requirement (BWR) data to correct AEI  
+var AF = 
+    /* color: #98ff00 */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-18.453741194122344, 35.91044312674358],
+          [-18.453741194122344, -35.72507498715328],
+          [53.17711818087813, -35.72507498715328],
+          [53.17711818087813, 35.91044312674358]]], null, false),
+    SA = 
+    /* color: #d63000 */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-95.30658744480822, 13.787526284275543],
+          [-95.30658744480822, -56.82937248879939],
+          [-33.431587444808265, -56.82937248879939],
+          [-33.431587444808265, 13.787526284275543]]], null, false),
+    NA = 
+    /* color: #98ff00 */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-152.6623904849056, 70.16540140321656],
+          [-152.6623904849056, 14.676197287454757],
+          [-53.873327984905586, 14.676197287454757],
+          [-53.873327984905586, 70.16540140321656]]], null, false),
+    EU = 
+    /* color: #0b4a8b */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-44.053065038627395, 70.20992239436592],
+          [-44.053065038627395, 37.46324768437255],
+          [53.153966211372605, 37.46324768437255],
+          [53.153966211372605, 70.20992239436592]]], null, false),
+    AS = 
+    /* color: #ffc82d */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[53.723899278077596, 70.06059555656344],
+          [53.723899278077596, 6.955525898604368],
+          [176.4192117780776, 6.955525898604368],
+          [176.4192117780776, 70.06059555656344]]], null, false),
+    OC = 
+    /* color: #00ffff */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[86.27351090940978, 6.723572536569107],
+          [86.27351090940978, -48.76774735894285],
+          [183.8321046594098, -48.76774735894285],
+          [183.8321046594098, 6.723572536569107]]], null, false);
+          
+var table = ee.FeatureCollection("projects/fwhung/assets/countryborders_faogaul2014"),
+    IA = ee.Image("projects/fwhung/assets/WATNEED/Map_irrigated_ALLgrowth"),
+    AEI2015 = ee.Image("projects/fwhung/assets/G_AEI/AEI2015"),
+    AEI2010 = ee.Image("projects/fwhung/assets/G_AEI/AEI2010"),
+    AEI2005 = ee.Image("projects/fwhung/assets/G_AEI/AEI2005"),
+    AEI2000 = ee.Image("projects/fwhung/assets/G_AEI/AEI2000"),
+    BWRV2000 = ee.Image("projects/fwhung/assets/WATNEED/BWRV2000"),
+    BWRV2005 = ee.Image("projects/fwhung/assets/WATNEED/BWRV2005"),
+    BWRV2010 = ee.Image("projects/fwhung/assets/WATNEED/BWRV2010"),
+    BWRV2015 = ee.Image("projects/fwhung/assets/WATNEED/BWRV2015");
+
+//////// Change year here ///////
+var year = 2015; 
+var BWRh=BWRV2015.divide(IA).multiply(ee.Image.constant(1e5)); //(m); IA is in Ha and BWR in km3, so the conversion constant to m is 1e5
+
+
+// //CROPLAND
+// // Import GFSAD 30m cropland raster map- 0: water, 1: non-crop, 2: crop
+var cropCol=ee.ImageCollection.fromImages([
+  ee.ImageCollection("users/potapovpeter/Global_cropland_2003").max().setDefaultProjection({crs:AEI2015.projection()}).set({'year':2000}),
+  ee.ImageCollection( "users/potapovpeter/Global_cropland_2007").max().setDefaultProjection({crs:AEI2015.projection()}).set({'year':2005}),
+  ee.ImageCollection("users/potapovpeter/Global_cropland_2011").max().setDefaultProjection({crs:AEI2015.projection()}).set({'year':2010}),
+  ee.ImageCollection("users/potapovpeter/Global_cropland_2015").max().setDefaultProjection({crs:AEI2015.projection()}).set({'year':2015})
+  ])
+
+var pixArea=ee.Image.pixelArea().reproject({crs: AEI2015.projection() })  //unit:m2
+var AEIpct = AEI2015.multiply(1e4).divide(pixArea)
+
+
+var BWRthresh= 0.001; //m per year. 
+
+
+var cropland = cropCol.filter(ee.Filter.eq('year', year)).first()
+// Apply WATNEED dataset for bluewater irrigation requirement (BWR)
+  //Blue water requirement in height im m/yr (10km resol)
+var bands = BWRh.select('b1').addBands(IA).addBands(AEIpct).rename(['bwrh', 'IrrArea','AEIpct'])
+
+// convert to list
+// Get the system:index property as a list
+var Cntr = ee.FeatureCollection(table)
+
+//// Functions
+// Mapping over feature collection to  get a list of images
+var byFeature = function(index){
+  var cntr = Cntr.filter(ee.Filter.eq('system:index',ee.String(index))).first()
+  
+  //////////////////////// new edits ///////////////////////////////
+  ///////////////////////////////////////////////////////////////
+    var cntrGeo = cntr.geometry().simplify(100)
+  
+  var byCntr = bands.clip(cntrGeo).set('ID',index)
+                .set('Country', cntr.getString('adm0_name'))
+                .set('ccode', cntr.getString('ccode'))
+  // calculate mean AEI of the country 
+  var AEI_mean = AEIpct.reduceRegion({reducer: ee.Reducer.mean(),geometry: cntr.geometry(), scale: 1e3,maxPixels: 1e12,})
+
+// return conunty AEI map if AEI_mean>0.Otherwise return 'null' and remove it.
+  var flag = ee.Number(AEI_mean.get('b1')).gt(0)
+  return ee.Algorithms.If(flag, byCntr, null) 
+};
+
+// Apply RF regression to predict AEI based on BWR
+var Prediction = function(img){
+  var ID = ee.Image(img).get('ID')
+  var cntr = Cntr.filter(ee.Filter.eq('system:index',ee.String(ID))).first();
+  var cntrGeo = cntr.geometry()
+  var cntrArea = cntrGeo.area(1e3)
+  var NoPt = ee.Algorithms.If(cntrArea.gt(1e12),  cntrArea.divide(1e8).round(), 1e4) 
+    // Ifarea > than 1 Million km2 (1e12), sample Area(km2)/(100km2) otherwise smaple 10000 points
+    // Training_ Binary irrigated vs non irrigated crop (all non crops are masked)
+  var points = AEIpct
+          .sample({'numPixels':NoPt,'region':cntrGeo,'scale':100,'geometries':true})
+  
+  // Overlay the points on the BWR imagery to get training.
+
+  var training = bands.sampleRegions({collection: points, scale: 100});
+
+  // Train a RF Regression model
+  var classifier = ee.Classifier.smileRandomForest({numberOfTrees:10,minLeafPopulation:1})
+      .setOutputMode('REGRESSION')
+      .train({
+        features: training,
+        classProperty: 'AEIpct',
+        inputProperties: ['bwrh', 'IrrArea']
+        });
+      
+  var regression = ee.Image(img).classify(classifier, 'predicted')  
+return regression
+}
+
+
+// Map over the system:index list
+var regressionAF = Cntr.filterBounds(AF).aggregate_array('system:index')
+              .map(byFeature, true).map(Prediction, true);
+var regressionNA = Cntr.filterBounds(NA).aggregate_array('system:index')
+              .map(byFeature, true).map(Prediction, true);
+var regressionSA = Cntr.filterBounds(SA).aggregate_array('system:index')
+              .map(byFeature, true).map(Prediction, true);
+var regressionEU = Cntr.filterBounds(EU).aggregate_array('system:index')
+              .map(byFeature, true).map(Prediction, true);
+var regressionAS = Cntr.filterBounds(AS).aggregate_array('system:index')
+              .map(byFeature, true).map(Prediction, true);
+var regressionOC = Cntr.filterBounds(OC).aggregate_array('system:index')
+              .map(byFeature, true).map(Prediction, true);
+
+
+var outputAF = ee.ImageCollection(regressionAF).mosaic().updateMask(1)
+var outputNA = ee.ImageCollection(regressionNA).mosaic().updateMask(1)
+var outputSA = ee.ImageCollection(regressionSA).mosaic().updateMask(1)
+var outputEU = ee.ImageCollection(regressionEU).mosaic().updateMask(1)
+var outputAS = ee.ImageCollection(regressionAS).mosaic().updateMask(1)
+var outputOC = ee.ImageCollection(regressionOC).mosaic().updateMask(1)
+
+// Export Results
+
+// Export.image.toAsset({image:outputAF,description:"AEI-AF", assetId: 'AEI_Prediction/Irr_Predict_AF2015',scale: 100, maxPixels:1e13});
+Export.image.toAsset({image:outputNA,description:"AEI-NA", assetId: 'AEI_Prediction/Irr_Predict_NA2015',scale: 100,maxPixels:1e13});
+// Export.image.toAsset({image:outputSA,description:"AEI-SA", assetId: 'AEI_Prediction/Irr_Predict_SA2015',scale: 100,maxPixels:1e13});
+// Export.image.toAsset({image:outputEU,description:"AEI-EU", assetId: 'AEI_Prediction/Irr_Predict_EU2015',scale: 100,maxPixels:1e13});
+// Export.image.toAsset({image:outputAS,description:"AEI-AS", assetId: 'AEI_Prediction/Irr_Predict_AS2015',scale: 100,maxPixels:1e13});
+// Export.image.toAsset({image:outputOC,description:"AEI-OC", assetId: 'AEI_Prediction/Irr_Predict_OC2015',scale: 100,maxPixels:1e13});
+
+
