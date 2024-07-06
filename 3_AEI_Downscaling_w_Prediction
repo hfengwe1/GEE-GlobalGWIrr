@@ -1,0 +1,372 @@
+var settle = ee.ImageCollection("JRC/GHSL/P2016/SMOD_POP_GLOBE_V1"),
+    N_Am = 
+    /* color: #d63000 */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-150.42588353178786, 66.16051056018848],
+          [-150.42588353178786, 6.664607562172495],
+          [-50.93369603178774, 6.664607562172495],
+          [-50.93369603178774, 66.16051056018848]]], null, false),
+    S_Am = 
+    /* color: #d63000 */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-82.50690927006087, 6.751896464843375],
+          [-82.50690927006087, -56.51101750495214],
+          [-32.80476083256083, -56.51101750495214],
+          [-32.80476083256083, 6.751896464843375]]], null, false),
+    Af = 
+    /* color: #98ff00 */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-18.17097177006075, 35.99578538642032],
+          [-18.17097177006075, -37.71859032558814],
+          [53.19621572993917, -37.71859032558814],
+          [53.19621572993917, 35.99578538642032]]], null, false),
+    Eu = 
+    /* color: #0b4a8b */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-25.031853896663172, 66.57719819936948],
+          [-25.031853896663172, 35.66284477054845],
+          [53.01502110333683, 35.66284477054845],
+          [53.01502110333683, 66.57719819936948]]], null, false),
+    N_As = 
+    /* color: #ffc82d */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[52.97107579083683, 66.52473633163392],
+          [52.97107579083683, 35.912380437236095],
+          [191.310919540837, 35.912380437236095],
+          [191.310919540837, 66.52473633163392]]], null, false),
+    S_As = 
+    /* color: #00ffff */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[52.87160718462147, 36.09192517350878],
+          [52.87160718462147, -11.535760957714055],
+          [162.55910718462155, -11.535760957714055],
+          [162.55910718462155, 36.09192517350878]]], null, false),
+    HI = 
+    /* color: #98ff00 */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-160.40669320789374, 22.601722526056857],
+          [-160.40669320789374, 18.675268793408208],
+          [-154.03462289539374, 18.675268793408208],
+          [-154.03462289539374, 22.601722526056857]]], null, false),
+    Aus = 
+    /* color: #0b4a8b */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[108.66880344923722, -10.986052031878156],
+          [108.66880344923722, -47.38465804039994],
+          [178.6297409492372, -47.38465804039994],
+          [178.6297409492372, -10.986052031878156]]], null, false),
+    imageVisParam = {"opacity":1,"bands":["distance_1"],"max":160.2753444594154,"gamma":1},
+    imageVisParam2 = {"opacity":1,"bands":["b1"],"max":0.1,"gamma":1};
+
+// Downscaling Code by Marc Muller
+var y=2000  // year of interest
+// var y=2005  // year of interest
+// var y=2010  // year of interest
+// var y=2015  // year of interest
+
+var AEI_2000 = ee.Image("projects/fwhung/assets/G_AEI/AEI2000"),
+    AEI_2005 = ee.Image("projects/fwhung/assets/G_AEI/AEI2005"),
+    AEI_2010 = ee.Image("projects/fwhung/assets/G_AEI/AEI2010"),
+    aei_2015 = ee.Image("projects/fwhung/assets/AEI_Prediction/Irr_Prediction_global_2015");
+
+var GWf=ee.Image("projects/fwhung/assets/AQUASTAT/gmia_v5_aeigw_pct").unmask(0).divide(100)
+
+var crop = ee.Image('users/marcfmuller/crop_30m_2015').toFloat()
+
+var cropCol=ee.ImageCollection.fromImages([
+  ee.ImageCollection("users/potapovpeter/Global_cropland_2003").max().setDefaultProjection({crs:crop.projection()}).set({'year':2000}),
+  ee.ImageCollection( "users/potapovpeter/Global_cropland_2007").max().setDefaultProjection({crs:crop.projection()}).set({'year':2005}),
+  ee.ImageCollection("users/potapovpeter/Global_cropland_2011").max().setDefaultProjection({crs:crop.projection()}).set({'year':2010}),
+  ee.ImageCollection("users/potapovpeter/Global_cropland_2015").max().setDefaultProjection({crs:crop.projection()}).set({'year':2015})
+  ])
+
+// filling 0 in the areas that have no AEI prediction (% irrigated). 
+var AEI_2015 = ee.Image(0)
+      .max(aei_2015.unmask())
+      .reproject({crs:AEI_2000.projection(),scale:AEI_2000.projection().nominalScale()})
+      .updateMask(1)
+      .rename('b1')
+ 
+
+
+var AEICol=ee.ImageCollection.fromImages([AEI_2000.set({'year':2000}),AEI_2005.set({'year':2005}),AEI_2010.set({'year':2010}),AEI_2015.set({'year':2015})])
+
+
+var settlementCol=ee.ImageCollection.fromImages([
+  settle.filter(ee.Filter.calendarRange(2000,2000,'year')).first().set({'year':2000}),
+  settle.filter(ee.Filter.calendarRange(2005,2005,'year')).first().set({'year':2005}),
+  settle.filter(ee.Filter.calendarRange(2010,2010,'year')).first().set({'year':2010}),
+  settle.filter(ee.Filter.calendarRange(2015,2015,'year')).first().set({'year':2015})
+  ])
+  
+//Gen Years
+var years=[2000,2005,2010,2015]
+
+  var pixArea=ee.Image.pixelArea().reproject({crs: AEI_2000.projection()})
+
+
+  var AEI=AEICol.filter(ee.Filter.eq('year',y)).first().multiply(pixArea)
+  var crop0=cropCol.filter(ee.Filter.eq('year',y)).first()
+  var settlement=settlementCol.filter(ee.Filter.eq('year',y)).first()
+
+  //Reduce crop resol 10km -> 60m
+  crop=crop0.reduceResolution({
+        reducer: ee.Reducer.mean(),
+        maxPixels: 60000
+      }).reproject({
+        crs: crop.projection(),
+        scale:60
+      }).gt(.5)  // a binary map 
+
+  // this is the crop area in 10km resolution, not a fraction 
+  var cropMean=crop
+      .reduceResolution({
+        reducer: ee.Reducer.mean(),
+        maxPixels: 60000
+      }).multiply(ee.Image.pixelArea())
+      .reproject({crs: AEI.projection()})  
+
+
+
+  var NcropMean=pixArea.subtract(cropMean) // non-crop area
+  
+  
+  //Irrigation
+  var dif=AEI.subtract(cropMean)
+  
+  // If AEI > Crop area, it is an error of AEI overestimation
+  var ErrorAEI=dif.multiply(dif.gt(0)).divide(pixArea) //That's the excess area of predicted AEI per cell. 
+  
+  //AEIcor those are the "new" AEI 
+  var AEIcor=AEI.min(cropMean) 
+  
+  
+   
+  /////////Surface water
+  //Fraction of PIXEL that's SW Irrigated
+  var fSW=AEIcor.multiply(ee.Image(1).subtract(GWf)).divide(pixArea)
+
+
+  //Order pixels by distance to river. 
+  var rivdist = ee.FeatureCollection('WWF/HydroSHEDS/v1/FreeFlowingRivers')
+  .filter(ee.Filter.gt('UPLAND_SKM', 25)) // Load river network map (lines)
+                .distance({searchRadius: 200000, maxError: 100})
+                .multiply(crop.gt(0))
+
+  //Reduce resolution percentile fails if the distribution is too strongly bimodal. 
+  //Set uncropped area equal to the maximum distance to river.
+  var rM=rivdist
+      .reduceResolution({
+        reducer: ee.Reducer.max(),
+        maxPixels: 60000
+      }).reproject({
+        crs: AEI.projection()
+      })
+  //We also add noise to avoid draws.
+  rivdist=rivdist.add(rM.multiply(crop.eq(0))).add(ee.Image.random().subtract(0.5))
+  rivdist=rivdist.multiply(rivdist.gt(0)) //Makes sure that all distances are non negative
+
+  //Gets percentile of distances on cropland and creates an array. (like a histogram)
+  var rp=rivdist
+      .reduceResolution({
+        reducer: ee.Reducer.percentile(ee.List.sequence(0,100,1)),
+        maxPixels: 60000
+      }).reproject({
+        crs: AEI.projection()
+      }).toArray()
+
+  
+  var pos=fSW.multiply(100).round().int() // SW irr percentile
+  var maxDist=rp.select(0).arrayGet(pos) // maximum distance to river of SW is the distance corresponding to the fSW percentile (i.e. fSW fraction of pixel is at a smaller distance from river)
+
+  var SWIr=rivdist.lt(maxDist).multiply(crop.gt(0)) //SW irrigation (binary: 1 and 0)
+ 
+    
+  //VALIDATION
+  // SW irr area
+  var irAgSW=SWIr
+      .reduceResolution({
+        reducer: ee.Reducer.mean(),
+        maxPixels: 60000
+      }).multiply(ee.Image.pixelArea()).reproject({
+        crs: AEI.projection()
+      })
+  var valSW=irAgSW.subtract(AEIcor.multiply(ee.Image(1).subtract(GWf))).divide(pixArea) // % difference between prediction and (AEI-GW)
+  
+
+  //////GROUNDWATER 
+  //Available Non SW-Irrigated Cropland
+  var cropNonSW=crop.subtract(SWIr).gt(0)
+  var cropNonSWMean=cropNonSW
+      .reduceResolution({
+        reducer: ee.Reducer.mean(),
+        maxPixels: 60000
+      }).multiply(ee.Image.pixelArea()).reproject({
+        crs: AEI.projection()
+      })
+  
+  //Fraction of PXEL that is GW Irrigated
+  var fGW=AEIcor.multiply(GWf).divide(pixArea)
+
+  //Now we look for distances from nearest edge (i.e., the SW irr and nonirrigated pixels).
+  var edgdist=cropNonSW.eq(0).fastDistanceTransform().reproject({crs: crop.projection()})
+  .multiply(cropNonSW.eq(1))
+  //Set uncropped area equal to the maximum distance to river.
+  var em=edgdist
+      .reduceResolution({
+        reducer: ee.Reducer.min(),
+        maxPixels: 60000
+      }).reproject({
+        crs: AEI.projection()
+      })
+  //add noise to avoid draws.
+  edgdist=edgdist.add(em.multiply(cropNonSW.eq(0))).add(ee.Image.random().subtract(0.5))
+  edgdist=edgdist.multiply(edgdist.gt(0)) //Makes sure that all distances are non negative
+  
+
+  //Gets percentile of distances on cropland and creates an array.
+  var ep=edgdist
+      .reduceResolution({
+        reducer: ee.Reducer.percentile(ee.List.sequence(1,100,1)),
+        maxPixels: 60000
+      }).reproject({
+        crs: AEI.projection()
+      }).toArray()
+
+ 
+   // minimun distance to edge of SW is the distance corresponding to the fGW percentile
+  var posG=ee.Image(1).subtract(fGW).multiply(100).round().subtract(1).int() // GW irr fraction
+  var minDistG=ep.select(0).arrayGet(posG) // minimum distance to SW irr pixels
+  var GWIr=edgdist.gt(minDistG).multiply(cropNonSW.gt(0)) // GW Irr pixels
+  
+  
+  
+    //Get dense settlement and assign an index of four
+  var Urb=settlement.eq(3).multiply(crop.eq(0)).multiply(4)
+  
+  //Assemble: 0 nonCropNonUrban, 1 rainfed crop, 2 non-gw irrigated crop, 3 gw irrigated crop, 4 dense urban.
+  var out=crop.add(SWIr).add(GWIr.multiply(2)).add(Urb)  
+
+
+////// VALIDATION //////
+  //GW % difference
+  var irAgGW=GWIr
+      .reduceResolution({
+        reducer: ee.Reducer.mean(),
+        maxPixels: 60000
+      }).multiply(ee.Image.pixelArea()).reproject({
+        crs: AEI.projection()
+      })
+  var valGW=irAgGW.subtract(AEIcor.multiply(GWf)).divide(pixArea) 
+
+
+  
+  //Total Irrigation difference %
+  var ir=out.eq(3).add(out.eq(2))
+  var irAg=ir
+      .reduceResolution({
+        reducer: ee.Reducer.mean(),
+        maxPixels: 60000
+      }).multiply(ee.Image.pixelArea()).reproject({
+        crs: AEI.projection()
+      })
+  
+  var ValIr=irAg.subtract(AEIcor).divide(pixArea)  
+
+  out=out.rename('cropClass').addBands(ErrorAEI.multiply(100).rename('PctPtErrorAEI')).addBands(valSW.multiply(100).rename('PctPtErrorSWDownscale')).addBands(valGW.multiply(100).rename('PctPtErrorGWDownscale')).addBands(ValIr.multiply(100).rename('PctPtErrorDownscale'))
+          // .addBands(AEI.rename('AEI'))
+          .addBands(cropMean.rename('cropMean')).addBands(GWf.rename('GWIrrFraction'))
+          .set({'year':y})
+  
+// Map.addLayer(out)
+// Map.addLayer(out.select(0).randomVisualizer())
+
+// // 2000
+// Export.image.toAsset({image:out,description:"NA2000",assetId:'CroplandNew60m/Cropland_2000_NA',scale:60,region:N_Am,maxPixels:1e13,pyramidingPolicy:'mode'})
+// Export.image.toAsset({image:out,description:"SA2000",assetId:'CroplandNew60m/Cropland_2000_SA',scale:60,region:S_Am,maxPixels:1e13,pyramidingPolicy:'mode'})
+// Export.image.toAsset({image:out,description:"EU2000",assetId:'CroplandNew60m/Cropland_2000_EU',scale:60,region:Eu,maxPixels:1e13,pyramidingPolicy:'mode'})
+// Export.image.toAsset({image:out,description:"NAs2000",assetId:'CroplandNew60m/Cropland_2000_NAs',scale:60,region:N_As,maxPixels:1e13,pyramidingPolicy:'mode'})
+// Export.image.toAsset({image:out,description:"SAs2000",assetId:'CroplandNew60m/Cropland_2000_SAs',scale:60,region:S_As,maxPixels:1e13,pyramidingPolicy:'mode'})
+// Export.image.toAsset({image:out,description:"AF2000",assetId:'CroplandNew60m/Cropland_2000_AF',scale:60,region:Af,maxPixels:1e13,pyramidingPolicy:'mode'})
+// Export.image.toAsset({image:out,description:"AUS2000",assetId:'CroplandNew60m/Cropland_2000_AUS',scale:60,region:Aus,maxPixels:1e13,pyramidingPolicy:'mode'})
+// Export.image.toAsset({image:out,description:"HI2000",assetId:'CroplandNew60m/Cropland_2000_HI',scale:60,region:HI,maxPixels:1e13,pyramidingPolicy:'mode'})
+
+// 2005
+Export.image.toAsset({image:out,description:"NA2005",assetId:'CroplandNew60m/Cropland_2005_NA',scale:60,region:N_Am,maxPixels:1e13,pyramidingPolicy:'mode'})
+Export.image.toAsset({image:out,description:"SA2005",assetId:'CroplandNew60m/Cropland_2005_SA',scale:60,region:S_Am,maxPixels:1e13,pyramidingPolicy:'mode'})
+Export.image.toAsset({image:out,description:"EU2005",assetId:'CroplandNew60m/Cropland_2005_EU',scale:60,region:Eu,maxPixels:1e13,pyramidingPolicy:'mode'})
+Export.image.toAsset({image:out,description:"NAs2005",assetId:'CroplandNew60m/Cropland_2005_NAs',scale:60,region:N_As,maxPixels:1e13,pyramidingPolicy:'mode'})
+Export.image.toAsset({image:out,description:"SAs2005",assetId:'CroplandNew60m/Cropland_2005_SAs',scale:60,region:S_As,maxPixels:1e13,pyramidingPolicy:'mode'})
+Export.image.toAsset({image:out,description:"AF2005",assetId:'CroplandNew60m/Cropland_2005_AF',scale:60,region:Af,maxPixels:1e13,pyramidingPolicy:'mode'})
+Export.image.toAsset({image:out,description:"AUS2005",assetId:'CroplandNew60m/Cropland_2005_AUS',scale:60,region:Aus,maxPixels:1e13,pyramidingPolicy:'mode'})
+Export.image.toAsset({image:out,description:"HI2005",assetId:'CroplandNew60m/Cropland_2005_HI',scale:60,region:HI,maxPixels:1e13,pyramidingPolicy:'mode'})
+
+
+
+
+
+// Export.image.toAsset({image:out,description:"NA",assetId:'CroplandNew60m/Cropland_2015_NA',scale:60,region:N_Am,maxPixels:1e13,pyramidingPolicy:'mode'})
+// Export.image.toAsset({image:out,description:"SA",assetId:'CroplandNew60mCropland_2015_SA',scale:60,region:S_Am,maxPixels:1e13,pyramidingPolicy:'mode'})
+// Export.image.toAsset({image:out,description:"EU",assetId:'CroplandNew60m/Cropland_2015_EU',scale:60,region:Eu,maxPixels:1e13,pyramidingPolicy:'mode'})
+// Export.image.toAsset({image:out,description:"NAs",assetId:'CroplandNew60m/Cropland_2015_NAs',scale:60,region:N_As,maxPixels:1e13,pyramidingPolicy:'mode'})
+// Export.image.toAsset({image:out,description:"SAs",assetId:'CroplandNew60m/Cropland_2015_SAs',scale:60,region:S_As,maxPixels:1e13,pyramidingPolicy:'mode'})
+// Export.image.toAsset({image:out,description:"AF",assetId:'CroplandNew60m/Cropland_2015_AF',scale:60,region:Af,maxPixels:1e13,pyramidingPolicy:'mode'})
+// Export.image.toAsset({image:out,description:"AUS",assetId:'CroplandNew60m/Cropland_2015_AUS',scale:60,region:Aus,maxPixels:1e13,pyramidingPolicy:'mode'})
+// Export.image.toAsset({image:out,description:"HI",assetId:'CroplandNew60m/Cropland_2015_HI',scale:60,region:HI,maxPixels:1e13,pyramidingPolicy:'mode'})
+
+
+
+
+
+
+
+
+
