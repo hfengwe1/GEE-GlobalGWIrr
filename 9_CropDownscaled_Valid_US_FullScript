@@ -1,0 +1,120 @@
+var table = ee.FeatureCollection("projects/fwhung/assets/USWell2024/wellLocation_IrrInclusive_Active_2024"),
+    table2 = ee.FeatureCollection("TIGER/2018/States"),
+    table3 = ee.FeatureCollection("projects/fwhung/assets/USWell2024/CountyAgMap2016"),
+    image = ee.Image("projects/fwhung/assets/CroplandNew60m/Crop_IrrSource_2015"),
+    image2 = ee.Image("projects/fwhung/assets/US_well/Well_Img60m"),
+    AEI2015 = ee.Image("projects/fwhung/assets/G_AEI/AEI2015"),
+    CONUS = 
+    /* color: #98ff00 */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-129.1610183956785, 51.06348657907155],
+          [-129.1610183956785, 21.03527791938122],
+          [-61.3094558956785, 21.03527791938122],
+          [-61.3094558956785, 51.06348657907155]]], null, false),
+    imageVisParam = {"opacity":1,"bands":["code"],"min":0,"max":3,"palette":["333333","5cff70","4bbcff","ffffff"]};
+    
+    
+var filter = ee.Filter.gt("CropRatio", 0.01)  // set a crop area threshold for validation
+var county = ee.FeatureCollection(table3).filter(filter)  // county with at least 1% of cropland
+
+
+// Step 1: Read well point data and county map 
+//********************************************************************************
+var cropClass = image.select('cropClass').rename('b1')
+var crop = cropClass.gt(0).and(cropClass.lt(4))
+          // .addBands(cropClass)
+crop = crop.updateMask(crop.select('b1').eq(1))
+var GWirr = cropClass.eq(3).rename('Predict')  // predicted GWIrr 
+// wells support irrigation but also other water uses; GPS precision is 1e-4 deg
+var wellImg = ee.Image(image2).int().addBands(GWirr.int())    // 60m
+  //0: O-P-, 1:O-P+, 2:O+P-, 3: O+P+
+
+
+// Task 2: reproject and rescale the raster maps
+var buf =  ee.List([250, 500, 750]) // distance list for buffer analysis
+// var buf =  ee.List([3000, 5000, 10000]) // distance list for buffer analysis
+
+var seq = ee.List.sequence({start:0, count:buf.length()}) // create a sequence for looping
+  .aside(print)
+var seq2 = ee.List.sequence({start:0, count:4}) // the indices of error metrix
+
+var istr = seq2.map(function(s2){
+  return ee.String('I').cat(ee.Number(s2).int().format())
+});   // I1 , I2, I3, I4
+var bufstr = buf.map(function(s){return ee.String('b').cat(ee.Number(s).int().format())
+});
+
+// Map by county
+var CT = county.map(function(ct){
+
+  var buffer = seq.map(function(s){
+    var reProject = wellImg.reduceResolution({
+          reducer: ee.Reducer.max(), // at least one well exists
+          maxPixels: 32778
+        })
+        .reproject({
+          crs: GWirr.projection(),
+          scale: buf.get(s)
+        });
+    var index = reProject.select('Obs').multiply(2).add(reProject.select('Predict')).rename('code') 
+    // convert to GWIrr code (0: O-P-, 1:O-P+, 2:O+P-, 3: O+P+)
+      // count the pixels with differen values 
+    var count = index.reduceRegion({
+        reducer:ee.Reducer.fixedHistogram({min:0, max:4, steps:4}),
+        geometry:ct.geometry()
+      })      
+    var dict1 = ee.Dictionary({'0':0, '1':0,'2':0 ,'3':0})
+    var list1 = ee.Array(count.get('code')).slice(1, 0, 1).reshape([1,4]).toList().get(0) // bins
+    var list2 = ee.Array(count.get('code')).slice(1, 1).reshape([1,4]).toList().get(0)
+    var list1Str = ee.List(list1).map(function(bin) {return ee.Number(bin).round().int().format()})
+    var dict2 = ee.Dictionary.fromLists(list1Str, list2)
+    var dict = dict1.combine(ee.Dictionary(dict2), true)
+    // return list2
+    return dict.values()
+
+    })
+    .flatten()
+// print(buffer)
+// asdf
+
+    return ct.set(ee.String(bufstr.get(0)).cat(istr.get(0)), ee.Number(buffer.get(0)))
+            .set(ee.String(bufstr.get(0)).cat(istr.get(1)), ee.Number(buffer.get(1)))
+            .set(ee.String(bufstr.get(0)).cat(istr.get(2)), ee.Number(buffer.get(2)))
+            .set(ee.String(bufstr.get(0)).cat(istr.get(3)), ee.Number(buffer.get(3)))
+            .set(ee.String(bufstr.get(1)).cat(istr.get(0)), ee.Number(buffer.get(4)))
+            .set(ee.String(bufstr.get(1)).cat(istr.get(1)), ee.Number(buffer.get(5)))
+            .set(ee.String(bufstr.get(1)).cat(istr.get(2)), ee.Number(buffer.get(6)))
+            .set(ee.String(bufstr.get(1)).cat(istr.get(3)), ee.Number(buffer.get(7)))
+            .set(ee.String(bufstr.get(2)).cat(istr.get(0)), ee.Number(buffer.get(8)))
+            .set(ee.String(bufstr.get(2)).cat(istr.get(1)), ee.Number(buffer.get(9)))
+            .set(ee.String(bufstr.get(2)).cat(istr.get(2)), ee.Number(buffer.get(10)))
+            .set(ee.String(bufstr.get(2)).cat(istr.get(3)), ee.Number(buffer.get(11)))
+  })
+// print(CT) 
+
+Map.addLayer(crop, {}, 'Crop')
+Map.addLayer(GWirr.updateMask(crop), {}, 'GWirr')
+// Map.addLayer(CT, {}, 'county')
+
+// O-P-:gray, O-P+: green, O+p-:blue, O+P+: white
+
+
+var removeGeo = function(feature){
+  feature = feature.setGeometry(null);
+  return (feature)}
+
+
+
+
+// Export 
+
+Export.table.toAsset({collection: CT, description: 'Valid_US_Data_lt1km_asset2024', 
+      assetId:'Validation/US_Data_Valid_lt1km_2024' });
+Export.table.toDrive({collection: CT.map(removeGeo), description: 'Valid_US_Data_lt1km_2024', 
+      fileFormat: 'CSV',folder: 'TBA-Results',});
